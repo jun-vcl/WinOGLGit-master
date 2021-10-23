@@ -94,6 +94,12 @@ void CAdminControl::SaveClick(float x, float y)
 {
 	CVertex* nowV = shape_final->GetVertexHead();
 
+	//点の内外判定、同じ位置に点を追加しない判定
+	if (JudgeNaigai(x, y) == true || JudgeAppendVertex(x,y) == false)
+	{
+		return;
+	}
+
 	if (nowV == NULL)
 	{
 		shape_final->AppendVertex(x, y);
@@ -102,8 +108,7 @@ void CAdminControl::SaveClick(float x, float y)
 	{
 		if (JudgeJikoKosa(x,y) == false && JudgeTaKosa(x,y) == false)
 		{
-			//クリックした点とVertexの最後の点の距離が一定以下の時
-			if (math.CalcDistance(x, y, shape_final->GetVertexHead()->GetX(), shape_final->GetVertexHead()->GetY()) < 0.1)
+			if (JudgeCloseShape(x, y) == true && JudgeNaiho() == false)
 			{
 				shape_final->close = true;
 				AppendShape();
@@ -138,6 +143,23 @@ CShape* CAdminControl::AppendShape()
 	return newS;
 }
 
+//同じ位置に複数個点がうてないようにする処理(うてる時True)
+bool CAdminControl::JudgeAppendVertex(float x, float y)
+{
+	float dis = 0;
+
+	if (shape_final->VertexNum > 0)
+	{
+		dis = math.CalcDistance(x, y, shape_final->GetVertexFinal()->GetX(), shape_final->GetVertexFinal()->GetY());
+
+		if (dis < 0.03)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
 
 //自己交差判定(交差してたらTrue)
 bool CAdminControl::JudgeJikoKosa(float x, float y)
@@ -245,8 +267,6 @@ bool CAdminControl::JudgeTaKosa(float x, float y)
 	CVertex Vector_b1;
 	CVertex Vector_b2;
 
-	Vector_a = math.CalcVector(&As, Ae);
-
 	//外積計算
 	double Gaiseki_ca1;
 	double Gaiseki_ca2;
@@ -256,9 +276,10 @@ bool CAdminControl::JudgeTaKosa(float x, float y)
 	float ca1_ca2 = 0;
 	float cb1_cb2 = 0;
 
-	//Shape内のVertexが3つ以上あるとき
-	if (nowS_head->GetNextShape() != NULL)
+	//Shapeが2つ以上あるとき　かつ　最新のShapeにVertexが二つ以上あるとき
+	if (nowS_head->GetNextShape() != NULL && Ae != NULL)
 	{
+		Vector_a = math.CalcVector(&As, Ae);
 		while (nowS_head != nowS_final)
 		{
 			Bs = nowS_head->GetVertexHead();
@@ -294,3 +315,235 @@ bool CAdminControl::JudgeTaKosa(float x, float y)
 	return false;
 }
 
+//点の内外判定(中に入ってたらTrue)
+bool CAdminControl::JudgeNaigai(float x, float y)
+{
+	CShape* nowS_final = shape_final;
+
+	//追加したいVertex
+	CVertex As;
+	As.SetXY(x, y);
+
+	CShape* nowS_head = shape_head;
+
+	//追いかけるVertex
+	CVertex* Bs;
+	CVertex* Be;
+
+	//ベクトル計算
+	CVertex Vector_a;
+	CVertex Vector_b;
+
+	//外積計算
+	float Gaiseki = 0;
+
+	//内積計算
+	float Naiseki = 0;
+
+	//θ
+	float theta = 0;
+
+	//角度
+	float degree = 0;
+
+	//一つ目のShapeが閉じている時
+	if (nowS_head->close == true)
+	{
+		while (nowS_head != nowS_final)
+		{
+			Bs = nowS_head->GetVertexHead();
+			Be = Bs->GetNextVertex();
+			theta = 0;
+
+			while (Be != NULL)
+			{
+				Vector_a = math.CalcVector(&As, Bs);
+				Vector_b = math.CalcVector(&As, Be);
+				
+				Naiseki = math.CalcNaiseki(Vector_a, Vector_b);
+				Gaiseki = math.CalcGaiseki(Vector_a, Vector_b);
+
+				//Gaiseki = sqrt(pow(Gaiseki, 2));
+
+				theta = theta + atan2f(Gaiseki, Naiseki);
+
+				Bs = Be;
+				Be = Be->GetNextVertex();
+			}
+
+			//最後の頂点と最初の頂点で計算
+			Vector_a = math.CalcVector(&As, Bs);
+			Vector_b = math.CalcVector(&As, nowS_head->GetVertexHead());
+
+			Naiseki = math.CalcNaiseki(Vector_a, Vector_b);
+			Gaiseki = math.CalcGaiseki(Vector_a, Vector_b);
+
+			//Gaiseki = sqrt(pow(Gaiseki, 2));
+
+			theta = theta + atan2f(Gaiseki, Naiseki);
+
+			theta = sqrt(pow(theta, 2));
+
+			//degree = theta * 180 / PI;
+
+			if (2*PI-theta < 0.01)
+			{
+				return true;
+			}
+
+			nowS_head = nowS_head->GetNextShape();
+		}
+	}
+	return false;
+}
+
+//Shapeを閉じるかの判定(閉じていい時True)
+bool CAdminControl::JudgeCloseShape(float x, float y)
+{
+	float dis = math.CalcDistance(x, y, shape_final->GetVertexHead()->GetX(), shape_final->GetVertexHead()->GetY());
+
+	//クリックした点とVertexの最後の点の距離が一定以下の時
+	if (dis < 0.05)
+	{
+		//頂点が５こ以下の時
+		if (shape_final->VertexNum < 5)
+		{
+			return true;
+		}
+
+		//追加したいVertex
+		CVertex* As;
+		As = shape_final->GetVertexHead();
+
+		//最後に追加した点
+		CVertex* Ae;
+		Ae = shape_final->GetVertexFinal();
+
+		//追いかけるVertex
+		CVertex* Bs;
+		CVertex* Be;
+
+		//ベクトル計算
+		CVertex Vector_a;
+		CVertex Vector_a1;
+		CVertex Vector_a2;
+		CVertex Vector_b;
+		CVertex Vector_b1;
+		CVertex Vector_b2;
+
+		//外積計算
+		double Gaiseki_ca1;
+		double Gaiseki_ca2;
+		double Gaiseki_cb1;
+		double Gaiseki_cb2;
+
+		float ca1_ca2 = 0;
+		float cb1_cb2 = 0;
+
+		Bs = shape_final->GetVertexHead()->GetNextVertex();
+		Be = Bs->GetNextVertex();
+
+		while (Be->GetNextVertex() != NULL)
+		{
+			Vector_a = math.CalcVector(As, Ae);
+			Vector_a1 = math.CalcVector(As, Bs);
+			Vector_a2 = math.CalcVector(As, Be);
+			Vector_b = math.CalcVector(Bs, Be);
+			Vector_b1 = math.CalcVector(Bs, As);
+			Vector_b2 = math.CalcVector(Bs, Ae);
+
+			Gaiseki_ca1 = math.CalcGaiseki(Vector_a, Vector_a1);
+			Gaiseki_ca2 = math.CalcGaiseki(Vector_a, Vector_a2);
+			Gaiseki_cb1 = math.CalcGaiseki(Vector_b, Vector_b1);
+			Gaiseki_cb2 = math.CalcGaiseki(Vector_b, Vector_b2);
+
+			ca1_ca2 = Gaiseki_ca1 * Gaiseki_ca2;
+			cb1_cb2 = Gaiseki_cb1 * Gaiseki_cb2;
+
+			if (ca1_ca2 <= 0 && cb1_cb2 <= 0)
+			{
+				return false;
+			}
+
+			Bs = Be;
+			Be = Be->GetNextVertex();
+		}
+		return true;
+	}
+}
+
+//Shapeの内包判定(内包してるときTrue)
+bool CAdminControl::JudgeNaiho()
+{
+	CShape* nowS_head = shape_head;
+	CShape* nowS_final = shape_final;
+
+	//判定するVertex
+	CVertex* A = nowS_head->GetVertexHead();
+
+	//追いかけるVertex
+	CVertex* Bs;
+	CVertex* Be;
+
+	//ベクトル計算
+	CVertex Vector_a;
+	CVertex Vector_b;
+
+	//外積計算
+	float Gaiseki = 0;
+
+	//内積計算
+	float Naiseki = 0;
+
+	//θ
+	float theta = 0;
+
+	//一つ目のShapeが閉じている時
+	if (nowS_head->close == true)
+	{
+		while (nowS_head != nowS_final)
+		{
+			A = nowS_head->GetVertexHead();
+			while (A != NULL)
+			{
+				Bs = nowS_final->GetVertexHead();
+				Be = Bs->GetNextVertex();
+				theta = 0;
+
+				while (Be != NULL)
+				{
+					Vector_a = math.CalcVector(A, Bs);
+					Vector_b = math.CalcVector(A, Be);
+
+					Naiseki = math.CalcNaiseki(Vector_a, Vector_b);
+					Gaiseki = math.CalcGaiseki(Vector_a, Vector_b);
+
+					theta = theta + atan2f(Gaiseki, Naiseki);
+
+					Bs = Be;
+					Be = Be->GetNextVertex();
+				}
+
+				//最後の頂点と最初の頂点で計算
+				Vector_a = math.CalcVector(A, Bs);
+				Vector_b = math.CalcVector(A, nowS_head->GetVertexHead());
+
+				Naiseki = math.CalcNaiseki(Vector_a, Vector_b);
+				Gaiseki = math.CalcGaiseki(Vector_a, Vector_b);
+
+				theta = theta + atan2f(Gaiseki, Naiseki);
+
+				theta = sqrt(pow(theta, 2));
+
+				if (2 * PI - theta < 0.01)
+				{
+					return true;
+				}
+				A = A->GetNextVertex();
+			}
+
+			nowS_head = nowS_head->GetNextShape();
+		}
+	}
+	return false;
+}

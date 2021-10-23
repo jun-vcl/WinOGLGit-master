@@ -26,13 +26,27 @@ public:
 	//Shapeの追加
 	CShape* AppendShape();
 
+	//同じ位置に複数個点がうてないようにする処理(うてる時True)
+	bool JudgeAppendVertex(float x, float y);
+
 	//自己交差判定(交差してたらTrue)
 	bool JudgeJikoKosa(float x, float y);
 
 	//他交差判定(交差してたらTrue)
 	bool JudgeTaKosa(float x, float y);
 
+	//点の内外判定(中に入ってたらTrue)
+	bool JudgeNaigai(float x, float y);
+
+	//Shapeを閉じるかの判定(閉じていい時True)
+	bool JudgeCloseShape(float x, float y);
+
+	//Shapeの内包判定(内包してるときTrue)
+	bool JudgeNaiho();
+
 private:
+	#define PI 3.14159265359
+
 	//計算用のクラス
 	CMath math;
 
