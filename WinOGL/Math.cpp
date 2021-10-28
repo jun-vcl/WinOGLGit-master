@@ -74,3 +74,69 @@ float CMath::CalcGaiseki(CVertex Vector1, CVertex Vector2)
 
 	return Gaiseki;
 }
+
+//点と直線の距離計算(V1とL1L2の距離)
+float CMath::CalcDistance_PtoL1(CVertex* V1, CVertex* L1, CVertex* L2)
+{
+	//L1とV1のベクトル
+	CVertex vector_a;
+	//L1とL2のベクトル
+	CVertex vector_b;
+
+	vector_a = CalcVector(L1, V1);
+	vector_b = CalcVector(L1, L2);
+
+	float sin = 0;
+	float _a = 0, _b = 0;
+	
+	_a = sqrt(pow(vector_a.GetX(), 2)) + sqrt(pow(vector_a.GetY(), 2));
+	_b = sqrt(pow(vector_b.GetX(), 2)) + sqrt(pow(vector_b.GetY(), 2));
+	sin = sqrt(pow(CalcGaiseki(vector_a, vector_b), 2)) / (_a * _b);
+
+	float d = 0;
+
+	d = _b * sin;
+
+	return d;
+}
+
+//点と線分の距離計算(V1とL1L2の距離)
+float CMath::CalcDistance_PtoL2(CVertex* V1, CVertex* L1, CVertex* L2)
+{
+	//参考文献
+	//https://qiita.com/kkdd/items/b3c5e06798e59fe2768e
+
+	float _s, _t;
+	float _sa, _sb, _ta, _tb;
+
+	_sa = CalcDistance(V1, L2) * CalcDistance(L1, L2);
+	_sb = CalcDistance(L1, L2) * CalcDistance(L1, L2);
+	_ta = CalcDistance(L1, V1) * CalcDistance(L1, L2);
+	_tb = CalcDistance(L1, L2) * CalcDistance(L1, L2);
+
+	_s = _sa / _sb;
+	_t = _ta / _tb;
+
+	float x, y;
+
+	x = _s * L1->GetX() + _t * L2->GetX();
+	y = _s * L1->GetY() + _t * L2->GetY();
+
+	float dis = 0;
+
+	dis = CalcDistance(V1->GetX(), V1->GetY(), x, y);
+
+	if (0 < _s && _s < 1)
+	{
+		return dis;
+	}
+
+	dis = CalcDistance(V1, L1);
+
+	if (dis > CalcDistance(V1, L2))
+	{
+		dis = CalcDistance(V1, L2);
+	}
+
+	return dis;
+}

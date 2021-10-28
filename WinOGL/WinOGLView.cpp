@@ -1,6 +1,4 @@
-﻿// WinOGLView.cpp : CWinOGLView クラスの実装
-
-#include "pch.h"
+﻿#include "pch.h"
 #include "framework.h"
 // SHARED_HANDLERS は、プレビュー、縮小版、および検索フィルター ハンドラーを実装している ATL プロジェクトで定義でき、
 // そのプロジェクトとのドキュメント コードの共有を可能にします。
@@ -26,6 +24,12 @@ BEGIN_MESSAGE_MAP(CWinOGLView, CView)
 	ON_WM_DESTROY()
 	ON_WM_ERASEBKGND()
 	ON_WM_SIZE()
+	ON_WM_RBUTTONDOWN()
+	ON_WM_KEYDOWN()
+	ON_COMMAND(ID_MODE_EDIT, &CWinOGLView::OnModeEdit)
+	ON_UPDATE_COMMAND_UI(ID_MODE_EDIT, &CWinOGLView::OnUpdateModeEdit)
+	ON_COMMAND(ID_MODE_OBJECT, &CWinOGLView::OnModeObject)
+	ON_UPDATE_COMMAND_UI(ID_MODE_OBJECT, &CWinOGLView::OnUpdateModeObject)
 END_MESSAGE_MAP()
 
 // CWinOGLView コンストラクション/デストラクション
@@ -94,18 +98,6 @@ CWinOGLDoc* CWinOGLView::GetDocument() const // デバッグ以外のバージ�
 
 // CWinOGLView メッセージ ハンドラー
 
-
-void CWinOGLView::OnLButtonDown(UINT nFlags, CPoint point)
-{
-	SettingWindow(point);
-
-	AC.SaveClick(clickX, clickY);
-
-	RedrawWindow();
-	CView::OnLButtonDown(nFlags, point);
-}
-
-
 int CWinOGLView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 {
 	if (CView::OnCreate(lpCreateStruct) == -1)
@@ -137,19 +129,16 @@ int CWinOGLView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	return 0;
 }
 
-
 void CWinOGLView::OnDestroy()
 {
 	CView::OnDestroy();
 	wglDeleteContext(m_hRC);
 }
 
-
 BOOL CWinOGLView::OnEraseBkgnd(CDC* pDC)
 {
 	return true;
 }
-
 
 void CWinOGLView::OnSize(UINT nType, int cx, int cy)
 {
@@ -169,7 +158,7 @@ void CWinOGLView::OnSize(UINT nType, int cx, int cy)
 		glOrtho(-1 * hi, 1 * hi, -1, 1, -100, 100);
 	}
 	else
-	{ 
+	{
 		hi = (double)cy / cx;
 		glOrtho(-1, 1, -1 * hi, 1 * hi, -100, 100);
 	}
@@ -212,4 +201,115 @@ void CWinOGLView::SettingWindow(CPoint point)
 
 	point.x = clickX;
 	point.y = clickY;
+}
+
+void CWinOGLView::OnLButtonDown(UINT nFlags, CPoint point)
+{
+	SettingWindow(point);
+
+	//オブジェクトモード
+	if (Mode_Object == true)
+	{
+		AC.ChooseShape(clickX, clickY);
+	}
+
+	//エディットモード
+	if (Mode_Edit == true)
+	{
+		AC.SaveClick(clickX, clickY);
+	}	
+
+	RedrawWindow();
+	CView::OnLButtonDown(nFlags, point);
+}
+
+void CWinOGLView::OnRButtonDown(UINT nFlags, CPoint point)
+{
+	SettingWindow(point);
+
+	//エディットモード
+	if (Mode_Edit == true)
+	{
+		AC.ChooseLine(clickX, clickY);
+		AC.ChooseClick(clickX, clickY);
+	}
+
+	RedrawWindow();
+	CView::OnRButtonDown(nFlags, point);
+}
+
+
+void CWinOGLView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
+{
+	if (nChar == VK_TAB)
+	{
+		ChangeMode(++Mode_Num);
+	}
+
+	CView::OnKeyDown(nChar, nRepCnt, nFlags);
+}
+
+//モード切り替え(num:0=Object,1=Edit)
+void CWinOGLView::ChangeMode(int num)
+{
+	if (Mode_Num > 1)
+	{
+		Mode_Num = 0;
+		
+	}
+
+	num = Mode_Num;
+
+	if (num == 0)
+	{
+		Mode_Object = true;
+		Mode_Edit = false;
+		AC.FreeChooseVertex();
+	}
+	else if (num == 1)
+	{
+		Mode_Edit = true;
+		Mode_Object = false;
+		AC.FreeChooseShape();
+	}
+	RedrawWindow();
+}
+
+void CWinOGLView::OnModeEdit()
+{
+	Mode_Edit = true;
+	Mode_Object = false;
+	AC.FreeChooseShape();
+	Mode_Num = 1;
+	RedrawWindow();
+}
+void CWinOGLView::OnUpdateModeEdit(CCmdUI* pCmdUI)
+{
+	if (Mode_Edit == true)
+	{
+		pCmdUI->SetCheck(true);
+	}
+	else
+	{
+		pCmdUI->SetCheck(false);
+	}
+}
+void CWinOGLView::OnModeObject()
+{
+	Mode_Object = true;
+	Mode_Edit = false;
+	AC.FreeChooseVertex();
+	Mode_Num = 0;
+	RedrawWindow();
+}
+void CWinOGLView::OnUpdateModeObject(CCmdUI* pCmdUI)
+{
+	if (Mode_Object == true)
+	{
+		pCmdUI->SetCheck(true);
+	}
+	else
+	{
+		pCmdUI->SetCheck(false);
+	}
 }

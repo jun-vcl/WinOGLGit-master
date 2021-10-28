@@ -6,6 +6,9 @@
 CAdminControl::CAdminControl()
 {
 	AppendShape();
+	CreateRect();
+	shape_final->close = true;
+	AppendShape();
 }
 
 CAdminControl::~CAdminControl()
@@ -16,9 +19,12 @@ CAdminControl::~CAdminControl()
 //描画処理
 void CAdminControl::Draw()
 {
-	DrawPoints();
 	DrawLines();
 	DrawShape();
+	DrawPoints();
+	DrawChooseVertex();
+	DrawChooseLine();
+	DrawChooseShape();
 }
 
 //点の描画
@@ -88,6 +94,73 @@ void CAdminControl::DrawShape()
 	}
 }
 
+//選択した頂点の描画
+void CAdminControl::DrawChooseVertex()
+{
+	//頂点を選択しているとき
+	if (ChooseV != NULL)
+	{
+		glPointSize(13);
+		glBegin(GL_POINTS);
+		glColor3f(1.0, 0, 0);
+		glVertex2f(ChooseV->GetX(), ChooseV->GetY());
+		glEnd();
+	}
+}
+
+//選択した辺の描画
+void CAdminControl::DrawChooseLine()
+{
+	//辺を選択しているとき
+	if (ChooseL1 != NULL && ChooseL2 != NULL)
+	{
+		glLineWidth(7);
+		glBegin(GL_LINES);
+		glColor3f(1.0, 0, 0);
+		glVertex2f(ChooseL1->GetX(), ChooseL1->GetY());
+		glVertex2f(ChooseL2->GetX(), ChooseL2->GetY());
+		glEnd();
+	}
+}
+
+//選択した図形の描画
+void CAdminControl::DrawChooseShape()
+{
+	CVertex* nowV = NULL;
+
+	if (ChooseS != NULL && ChooseS->close == true)
+	{
+		nowV = ChooseS->GetVertexHead();
+
+		glBegin(GL_LINE_LOOP);
+		glColor3f(1.0, 0, 0);
+		while (nowV != NULL)
+		{
+			glVertex2f(nowV->GetX(), nowV->GetY());
+			nowV = nowV->GetNextVertex();
+		}
+		glEnd();
+
+		nowV = ChooseS->GetVertexHead();
+		glBegin(GL_POINTS);
+		glColor3f(1.0, 0, 0);
+		while (nowV != NULL)
+		{
+			glVertex2f(nowV->GetX(), nowV->GetY());
+			nowV = nowV->GetNextVertex();
+		}
+		glEnd();
+	}
+}
+
+//最初の図形（立方体）を作成
+void CAdminControl::CreateRect()
+{
+	shape_final->AppendVertex(0.2, 0.2);
+	shape_final->AppendVertex(-0.2, 0.2);
+	shape_final->AppendVertex(-0.2, -0.2);
+	shape_final->AppendVertex(0.2, -0.2);
+}
 
 //頂点，図形の追加
 void CAdminControl::SaveClick(float x, float y)
@@ -546,4 +619,194 @@ bool CAdminControl::JudgeNaiho()
 		}
 	}
 	return false;
+}
+
+
+//頂点、図形の選択
+void CAdminControl::ChooseClick(float x, float y)
+{
+	//選択した頂点を取得
+	ChooseV = ChooseVertex(x, y);
+	
+	//頂点を選択していた時
+	if (ChooseV != NULL)
+	{
+		FreeChooseLine();
+	}
+}
+
+//頂点の選択
+CVertex* CAdminControl::ChooseVertex(float x, float y)
+{
+	CShape* nowS_head = shape_head;
+	CVertex* nowV_head = nowS_head->GetVertexHead();
+
+	while (nowS_head != NULL)
+	{
+		nowV_head = nowS_head->GetVertexHead();
+		while (nowV_head != NULL)
+		{
+			if (math.CalcDistance(nowV_head->GetX(), nowV_head->GetY(), x, y) < 0.05)
+			{
+				return nowV_head;
+			}
+
+			nowV_head = nowV_head->GetNextVertex();
+		}
+		nowS_head = nowS_head->GetNextShape();
+	}
+
+	return NULL;
+}
+//選択した頂点の初期化
+void CAdminControl::FreeChooseVertex()
+{
+	ChooseV = NULL;
+}
+
+//辺の選択
+void CAdminControl::ChooseLine(float x, float y)
+{
+	CShape* nowS_head = shape_head;
+	float dis = 0;
+
+	//クリックした点
+	CVertex ClickV;
+	ClickV.SetXY(x, y);
+
+	while (nowS_head != NULL)
+	{
+		CVertex* nowV = nowS_head->GetVertexHead();
+
+		if (nowV == NULL)
+		{
+			break;
+		}
+
+		while (nowV->GetNextVertex() != NULL)
+		{
+			dis = math.CalcDistance_PtoL2(&ClickV, nowV, nowV->GetNextVertex());
+
+			if (dis < 0.1)
+			{
+				ChooseL1 = nowV;
+				ChooseL2 = nowV->GetNextVertex();
+				return;
+			}
+
+			nowV = nowV->GetNextVertex();
+		}
+
+		dis = math.CalcDistance_PtoL2(&ClickV, nowS_head->GetVertexFinal(), nowS_head->GetVertexHead());
+
+		if (dis < 0.1)
+		{
+			ChooseL1 = nowV;
+			ChooseL2 = nowS_head->GetVertexHead();
+			return;
+		}
+
+		nowS_head = nowS_head->GetNextShape();
+	}
+
+	ChooseL1 = NULL;
+	ChooseL2 = NULL;
+}
+//選択した辺の初期化
+void CAdminControl::FreeChooseLine()
+{
+	ChooseL1 = NULL;
+	ChooseL2 = NULL;
+}
+
+//図形の選択
+void CAdminControl::ChooseShape(float x, float y)
+{
+	ChooseS = JudgeNaigai_Shape(x, y);
+}
+//選択した頂点の初期化
+void CAdminControl::FreeChooseShape()
+{
+	ChooseS = NULL;
+}
+//点の内外判定(中に入ってたらTrue)_Shapeを返却するバージョン
+CShape* CAdminControl::JudgeNaigai_Shape(float x, float y)
+{
+	CShape* nowS_final = shape_final;
+
+	//追加したいVertex
+	CVertex As;
+	As.SetXY(x, y);
+
+	CShape* nowS_head = shape_head;
+
+	//追いかけるVertex
+	CVertex* Bs;
+	CVertex* Be;
+
+	//ベクトル計算
+	CVertex Vector_a;
+	CVertex Vector_b;
+
+	//外積計算
+	float Gaiseki = 0;
+
+	//内積計算
+	float Naiseki = 0;
+
+	//θ
+	float theta = 0;
+
+	//角度
+	float degree = 0;
+
+	//一つ目のShapeが閉じている時
+	if (nowS_head->close == true)
+	{
+		while (nowS_head != nowS_final)
+		{
+			Bs = nowS_head->GetVertexHead();
+			Be = Bs->GetNextVertex();
+			theta = 0;
+
+			while (Be != NULL)
+			{
+				Vector_a = math.CalcVector(&As, Bs);
+				Vector_b = math.CalcVector(&As, Be);
+
+				Naiseki = math.CalcNaiseki(Vector_a, Vector_b);
+				Gaiseki = math.CalcGaiseki(Vector_a, Vector_b);
+
+				//Gaiseki = sqrt(pow(Gaiseki, 2));
+
+				theta = theta + atan2f(Gaiseki, Naiseki);
+
+				Bs = Be;
+				Be = Be->GetNextVertex();
+			}
+
+			//最後の頂点と最初の頂点で計算
+			Vector_a = math.CalcVector(&As, Bs);
+			Vector_b = math.CalcVector(&As, nowS_head->GetVertexHead());
+
+			Naiseki = math.CalcNaiseki(Vector_a, Vector_b);
+			Gaiseki = math.CalcGaiseki(Vector_a, Vector_b);
+
+			//Gaiseki = sqrt(pow(Gaiseki, 2));
+
+			theta = theta + atan2f(Gaiseki, Naiseki);
+
+			theta = sqrt(pow(theta, 2));
+
+			//degree = theta * 180 / PI;
+
+			if (2 * PI - theta < 0.01)
+			{
+				return nowS_head;
+			}
+
+			nowS_head = nowS_head->GetNextShape();
+		}
+	}
+	return NULL;
 }

@@ -12,6 +12,18 @@ protected: // シリアル化からのみ作成します。
 	CWinOGLView() noexcept;
 	DECLARE_DYNCREATE(CWinOGLView)
 
+//モードフラグ
+public:
+	//オブジェクトモード
+	bool Mode_Object = true;
+	//エディット（編集）モード
+	bool Mode_Edit = false;
+
+	//モード切り替え(num:0=Object,1=Edit)
+	void ChangeMode(int num);
+
+	int Mode_Num = 0;
+
 // 属性
 public:
 	CWinOGLDoc* GetDocument() const;
@@ -52,6 +64,12 @@ public:
 
 	//最初のウィンドウの処理
 	void CWinOGLView::SettingWindow(CPoint point);
+	afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
+	afx_msg void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
+	afx_msg void OnModeEdit();
+	afx_msg void OnUpdateModeEdit(CCmdUI* pCmdUI);
+	afx_msg void OnModeObject();
+	afx_msg void OnUpdateModeObject(CCmdUI* pCmdUI);
 };
 
 #ifndef _DEBUG  // WinOGLView.cpp のデバッグ バージョン
